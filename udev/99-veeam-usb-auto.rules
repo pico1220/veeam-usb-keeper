@@ -1,0 +1,1 @@
+ACTION=="add|change", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="@EXPECTED_UUID@", TAG+="systemd", ENV{SYSTEMD_WANTS}+="@SERVICE_NAME@"
