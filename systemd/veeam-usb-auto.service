@@ -1,0 +1,13 @@
+[Unit]
+Description=Sauvegarde Veeam automatique au branchement USB
+After=veeamservice.service
+Wants=veeamservice.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/veeam-usb-auto.sh
+User=root
+Group=root
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
