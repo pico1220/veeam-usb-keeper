@@ -10,6 +10,7 @@ UDEV_DIR="${UDEV_DIR:-/etc/udev/rules.d}"
 STATE_DIR="${STATE_DIR:-/var/lib/veeam-usb-auto}"
 CONFIG_FILE="${CONFIG_FILE:-$SCRIPT_DIR/config.env}"
 LOAD_CONFIG="auto"
+INSTALL_TEST_MODE="${INSTALL_TEST_MODE:-0}"
 
 SERVICE_NAME="veeam-usb-auto.service"
 UDEV_RULE_NAME="99-veeam-usb-auto.rules"
@@ -82,6 +83,10 @@ parse_args() {
 }
 
 need_root() {
+  if [ "$INSTALL_TEST_MODE" = "1" ]; then
+    return
+  fi
+
   if [ "$(id -u)" -ne 0 ]; then
     echo "ERREUR: lance ce script avec sudo/root"
     exit 1
@@ -265,6 +270,10 @@ validate_config() {
   fi
 
   if [ "$missing" -eq 0 ]; then
+    if [ "$INSTALL_TEST_MODE" = "1" ]; then
+      return
+    fi
+
     validate_desktop_user || missing=1
     validate_expected_uuid_present || missing=1
     validate_fstab_entry || missing=1
@@ -333,14 +342,20 @@ install_scripts() {
 install_systemd_service() {
   install -d -m 0755 "$SYSTEMD_DIR"
   install -m 0644 "$TMPDIR_CREATED/$SERVICE_NAME" "$SERVICE_DST"
-  systemctl daemon-reload
+
+  if [ "$INSTALL_TEST_MODE" != "1" ]; then
+    systemctl daemon-reload
+  fi
 }
 
 install_udev_rule() {
   install -d -m 0755 "$UDEV_DIR"
   install -m 0644 "$TMPDIR_CREATED/$UDEV_RULE_NAME" "$UDEV_RULE_DST"
-  udevadm control --reload-rules
-  udevadm trigger --subsystem-match=block --property-match=ID_FS_UUID="$EXPECTED_UUID" || true
+
+  if [ "$INSTALL_TEST_MODE" != "1" ]; then
+    udevadm control --reload-rules
+    udevadm trigger --subsystem-match=block --property-match=ID_FS_UUID="$EXPECTED_UUID" || true
+  fi
 }
 
 print_summary() {
@@ -383,13 +398,16 @@ main() {
   need_cmd install
   need_cmd mktemp
   need_cmd sed
-  need_cmd systemctl
-  need_cmd udevadm
   need_cmd awk
   need_cmd grep
   need_cmd head
   need_cmd id
-  need_cmd veeamconfig
+
+  if [ "$INSTALL_TEST_MODE" != "1" ]; then
+    need_cmd systemctl
+    need_cmd udevadm
+    need_cmd veeamconfig
+  fi
 
   need_file "$AUTO_SCRIPT_SRC"
   need_file "$NOTIFY_SCRIPT_SRC"

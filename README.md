@@ -135,6 +135,16 @@ sudo OWNER="pico1220" REPO="veeam-usb-keeper" REF="v0.1.0" bash bootstrap.sh
 
 `REF=main` ou `REF=master` telecharge une branche. Toute autre valeur est traitee comme un tag.
 
+## Checks locaux
+
+Le depot contient un check leger qui ne depend pas d'une installation Veeam active :
+
+```bash
+./check.sh
+```
+
+Il lance `bash -n`, `shellcheck` si disponible, valide les templates systemd/udev quand les outils locaux le permettent, puis teste une installation dans des dossiers temporaires via `BIN_DIR`, `SYSTEMD_DIR` et `UDEV_DIR`.
+
 ## Test manuel
 
 Apres installation, disque branche :
