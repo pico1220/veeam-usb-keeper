@@ -8,32 +8,77 @@ BIN_DIR="${BIN_DIR:-/usr/local/bin}"
 SYSTEMD_DIR="${SYSTEMD_DIR:-/etc/systemd/system}"
 UDEV_DIR="${UDEV_DIR:-/etc/udev/rules.d}"
 STATE_DIR="${STATE_DIR:-/var/lib/veeam-usb-auto}"
+CONFIG_FILE="${CONFIG_FILE:-$SCRIPT_DIR/config.env}"
+LOAD_CONFIG="auto"
 
 SERVICE_NAME="veeam-usb-auto.service"
 UDEV_RULE_NAME="99-veeam-usb-auto.rules"
 
-JOB_ID="${JOB_ID:-50e035c0-8603-4a9d-943f-dba89b8ada90}"
-JOB_NAME="${JOB_NAME:-HomeFolderBackup}"
+JOB_ID="${JOB_ID:-}"
+JOB_NAME="${JOB_NAME:-}"
 MOUNTPOINT="${MOUNTPOINT:-/backup}"
-REPO_PATH="${REPO_PATH:-/backup/veeam/linux}"
-EXPECTED_UUID="${EXPECTED_UUID:-a42fe487-31b5-4e06-8fd2-d257725f0d82}"
-DESKTOP_USER="${DESKTOP_USER:-lapinou}"
-DESKTOP_UID="${DESKTOP_UID:-1000}"
+REPO_PATH="${REPO_PATH:-}"
+EXPECTED_UUID="${EXPECTED_UUID:-}"
+DESKTOP_USER="${DESKTOP_USER:-${SUDO_USER:-}}"
+DESKTOP_UID="${DESKTOP_UID:-}"
 
 AUTO_SCRIPT_SRC="$SCRIPT_DIR/scripts/veeam-usb-auto.sh"
 NOTIFY_SCRIPT_SRC="$SCRIPT_DIR/scripts/veeam-notify-desktop.sh"
 SERVICE_SRC="$SCRIPT_DIR/systemd/$SERVICE_NAME"
 UDEV_RULE_SRC="$SCRIPT_DIR/udev/$UDEV_RULE_NAME"
 
-AUTO_SCRIPT_DST="$BIN_DIR/veeam-usb-auto.sh"
-NOTIFY_SCRIPT_DST="$BIN_DIR/veeam-notify-desktop.sh"
-SERVICE_DST="$SYSTEMD_DIR/$SERVICE_NAME"
-UDEV_RULE_DST="$UDEV_DIR/$UDEV_RULE_NAME"
+AUTO_SCRIPT_DST=""
+NOTIFY_SCRIPT_DST=""
+SERVICE_DST=""
+UDEV_RULE_DST=""
+
+usage() {
+  cat <<USAGE
+Usage: sudo ./install.sh [--config FILE] [--no-config]
+
+Options:
+  --config FILE  Charger les variables depuis FILE
+  --no-config    Ne pas charger de fichier config.env
+  -h, --help     Afficher cette aide
+
+Copie config.env.example vers config.env, adapte les valeurs, puis relance l'installation.
+USAGE
+}
 
 cleanup() {
   if [ -n "$TMPDIR_CREATED" ] && [ -d "$TMPDIR_CREATED" ]; then
     rm -rf "$TMPDIR_CREATED"
   fi
+}
+
+parse_args() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --config)
+        if [ "$#" -lt 2 ]; then
+          echo "ERREUR: --config attend un chemin"
+          usage
+          exit 1
+        fi
+        CONFIG_FILE="$2"
+        LOAD_CONFIG="yes"
+        shift
+        ;;
+      --no-config)
+        LOAD_CONFIG="no"
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        echo "ERREUR: option inconnue: $1"
+        usage
+        exit 1
+        ;;
+    esac
+    shift
+  done
 }
 
 need_root() {
@@ -53,6 +98,114 @@ need_cmd() {
 need_file() {
   if [ ! -f "$1" ]; then
     echo "ERREUR: fichier introuvable: $1"
+    exit 1
+  fi
+}
+
+load_config_file() {
+  case "$LOAD_CONFIG" in
+    no)
+      return
+      ;;
+    auto)
+      [ -f "$CONFIG_FILE" ] || return
+      ;;
+    yes)
+      need_file "$CONFIG_FILE"
+      ;;
+  esac
+
+  set -a
+  # shellcheck disable=SC1090
+  . "$CONFIG_FILE"
+  set +a
+}
+
+apply_defaults() {
+  MOUNTPOINT="${MOUNTPOINT:-/backup}"
+  STATE_DIR="${STATE_DIR:-/var/lib/veeam-usb-auto}"
+  DESKTOP_USER="${DESKTOP_USER:-${SUDO_USER:-}}"
+
+  if [ -z "$DESKTOP_UID" ] && [ -n "$DESKTOP_USER" ]; then
+    DESKTOP_UID="$(id -u "$DESKTOP_USER" 2>/dev/null || true)"
+  fi
+}
+
+require_var() {
+  local name="$1"
+  local value
+  eval "value=\${$name:-}"
+
+  if [ -z "$value" ]; then
+    echo "ERREUR: variable obligatoire manquante: $name"
+    return 1
+  fi
+}
+
+reject_placeholder() {
+  local name="$1"
+  local bad_value="$2"
+  local value
+  eval "value=\${$name:-}"
+
+  if [ "$value" = "$bad_value" ]; then
+    echo "ERREUR: variable a personnaliser: $name vaut encore $bad_value"
+    return 1
+  fi
+}
+
+validate_uuid_var() {
+  local name="$1"
+  local value
+  eval "value=\${$name:-}"
+
+  case "$value" in
+    ????????-????-????-????-????????????)
+      ;;
+    *)
+      echo "ERREUR: format UUID invalide pour $name: $value"
+      return 1
+      ;;
+  esac
+}
+
+compute_install_paths() {
+  AUTO_SCRIPT_DST="$BIN_DIR/veeam-usb-auto.sh"
+  NOTIFY_SCRIPT_DST="$BIN_DIR/veeam-notify-desktop.sh"
+  SERVICE_DST="$SYSTEMD_DIR/$SERVICE_NAME"
+  UDEV_RULE_DST="$UDEV_DIR/$UDEV_RULE_NAME"
+}
+
+validate_config() {
+  local missing=0
+
+  require_var JOB_NAME || missing=1
+  require_var JOB_ID || missing=1
+  require_var EXPECTED_UUID || missing=1
+  require_var MOUNTPOINT || missing=1
+  require_var REPO_PATH || missing=1
+  require_var DESKTOP_USER || missing=1
+  require_var DESKTOP_UID || missing=1
+  require_var STATE_DIR || missing=1
+
+  if [ "$missing" -eq 0 ]; then
+    reject_placeholder JOB_NAME "MonJobVeeam" || missing=1
+    reject_placeholder JOB_ID "00000000-0000-0000-0000-000000000000" || missing=1
+    reject_placeholder EXPECTED_UUID "00000000-0000-0000-0000-000000000000" || missing=1
+    reject_placeholder DESKTOP_USER "ton-utilisateur" || missing=1
+    validate_uuid_var JOB_ID || missing=1
+    validate_uuid_var EXPECTED_UUID || missing=1
+  fi
+
+  if [ "$missing" -ne 0 ]; then
+    cat <<ERROR
+
+Copie le fichier d'exemple puis renseigne tes valeurs:
+  cp config.env.example config.env
+  sudo ./install.sh --config config.env
+
+Tu peux aussi passer les variables en environnement.
+ERROR
     exit 1
   fi
 }
@@ -148,6 +301,7 @@ SUMMARY
 main() {
   trap cleanup EXIT
 
+  parse_args "$@"
   need_root
 
   need_cmd chmod
@@ -162,6 +316,11 @@ main() {
   need_file "$NOTIFY_SCRIPT_SRC"
   need_file "$SERVICE_SRC"
   need_file "$UDEV_RULE_SRC"
+
+  load_config_file
+  apply_defaults
+  compute_install_paths
+  validate_config
 
   echo "[INSTALL] Préparation des fichiers"
   prepare_customized_files

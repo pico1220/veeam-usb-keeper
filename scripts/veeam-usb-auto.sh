@@ -1,15 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
-JOB_ID="50e035c0-8603-4a9d-943f-dba89b8ada90"
-JOB_NAME="HomeFolderBackup"
+JOB_ID="@JOB_ID@"
+JOB_NAME="@JOB_NAME@"
 
-MOUNTPOINT="/backup"
-REPO_PATH="/backup/veeam/linux"
-EXPECTED_UUID="a42fe487-31b5-4e06-8fd2-d257725f0d82"
+MOUNTPOINT="@MOUNTPOINT@"
+REPO_PATH="@REPO_PATH@"
+EXPECTED_UUID="@EXPECTED_UUID@"
 
 LOCKFILE="/run/veeam-usb-auto.lock"
-STATE_DIR="/var/lib/veeam-usb-auto"
+STATE_DIR="@STATE_DIR@"
 MONTH_MARKER="$STATE_DIR/last-monthly-full"
 
 exec 9>"$LOCKFILE"

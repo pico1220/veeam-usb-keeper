@@ -3,8 +3,8 @@ set -euo pipefail
 
 STATUS="${1:-INFO}"
 
-USER_NAME="lapinou"
-USER_ID="1000"
+USER_NAME="@DESKTOP_USER@"
+USER_ID="@DESKTOP_UID@"
 
 case "$STATUS" in
   START)

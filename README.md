@@ -18,28 +18,37 @@ Quand le disque USB attendu est branche, udev demarre `veeam-usb-auto.service`, 
 Exemple d'entree `/etc/fstab` :
 
 ```fstab
-UUID=a42fe487-31b5-4e06-8fd2-d257725f0d82 /backup ext4 noauto,nofail,x-systemd.automount 0 2
+UUID=11111111-2222-3333-4444-555555555555 /backup ext4 noauto,nofail,x-systemd.automount 0 2
 ```
 
 Adapte le type de systeme de fichiers (`ext4`, `xfs`, etc.) et les options selon ton disque.
 
 ## Configuration
 
-Les variables se passent en environnement au moment de l'installation. `install.sh` les injecte dans les scripts installes sous `/usr/local/bin`.
+La configuration locale n'est pas stockee dans les scripts source. L'installation charge automatiquement `config.env` s'il existe, ou un fichier donne avec `--config`. Les valeurs peuvent aussi etre passees en environnement.
 
-| Variable | Defaut | Role |
-| --- | --- | --- |
-| `JOB_NAME` | `HomeFolderBackup` | Nom du job Veeam a lancer avec `veeamconfig job start --name`. |
-| `JOB_ID` | `50e035c0-8603-4a9d-943f-dba89b8ada90` | ID du job utilise pour suivre la session dans `veeamconfig session list --jobId`. |
-| `EXPECTED_UUID` | `a42fe487-31b5-4e06-8fd2-d257725f0d82` | UUID du disque USB attendu par la regle udev et par le script de backup. |
-| `MOUNTPOINT` | `/backup` | Point de montage du disque. |
-| `REPO_PATH` | `/backup/veeam/linux` | Chemin du repository Veeam sur le disque monte. |
-| `DESKTOP_USER` | `lapinou` | Utilisateur qui recoit les notifications desktop. |
-| `DESKTOP_UID` | `1000` | UID de cet utilisateur, utilise pour `XDG_RUNTIME_DIR` et D-Bus. |
-| `STATE_DIR` | `/var/lib/veeam-usb-auto` | Stocke l'etat local, notamment le marqueur d'active full mensuel. |
-| `BIN_DIR` | `/usr/local/bin` | Destination des scripts installes. |
-| `SYSTEMD_DIR` | `/etc/systemd/system` | Destination du service systemd. |
-| `UDEV_DIR` | `/etc/udev/rules.d` | Destination de la regle udev. |
+Depuis un clone du depot, commence par creer ta configuration locale :
+
+```bash
+cp config.env.example config.env
+$EDITOR config.env
+```
+
+Variables principales :
+
+| Variable | Obligatoire | Defaut | Role |
+| --- | --- | --- | --- |
+| `JOB_NAME` | oui | aucun | Nom du job Veeam a lancer avec `veeamconfig job start --name`. |
+| `JOB_ID` | oui | aucun | ID du job utilise pour suivre la session dans `veeamconfig session list --jobId`. |
+| `EXPECTED_UUID` | oui | aucun | UUID du disque USB attendu par la regle udev et par le script de backup. |
+| `MOUNTPOINT` | oui | `/backup` | Point de montage du disque. |
+| `REPO_PATH` | oui | aucun | Chemin du repository Veeam sur le disque monte. |
+| `DESKTOP_USER` | oui | `$SUDO_USER` si disponible | Utilisateur qui recoit les notifications desktop. |
+| `DESKTOP_UID` | oui | UID de `DESKTOP_USER` si resoluble | UID de cet utilisateur, utilise pour `XDG_RUNTIME_DIR` et D-Bus. |
+| `STATE_DIR` | oui | `/var/lib/veeam-usb-auto` | Stocke l'etat local, notamment le marqueur d'active full mensuel. |
+| `BIN_DIR` | non | `/usr/local/bin` | Destination des scripts installes. |
+| `SYSTEMD_DIR` | non | `/etc/systemd/system` | Destination du service systemd. |
+| `UDEV_DIR` | non | `/etc/udev/rules.d` | Destination de la regle udev. |
 
 Commandes utiles pour recuperer les valeurs :
 
@@ -49,6 +58,14 @@ sudo veeamconfig job list
 id -u "$USER"
 ```
 
+Exemple d'entree `/etc/fstab` avec l'UUID de ton disque :
+
+```fstab
+UUID=11111111-2222-3333-4444-555555555555 /backup ext4 noauto,nofail,x-systemd.automount 0 2
+```
+
+Adapte le type de systeme de fichiers (`ext4`, `xfs`, etc.) et les options selon ton disque.
+
 ## Installation locale
 
 Depuis un clone du depot :
@@ -56,16 +73,23 @@ Depuis un clone du depot :
 ```bash
 git clone https://github.com/pico1220/veeam-usb-keeper.git
 cd veeam-usb-keeper
+cp config.env.example config.env
+$EDITOR config.env
+sudo ./install.sh --config config.env
+```
 
+Pour une installation ponctuelle sans fichier de configuration :
+
+```bash
 sudo \
-  JOB_NAME="HomeFolderBackup" \
-  JOB_ID="50e035c0-8603-4a9d-943f-dba89b8ada90" \
-  EXPECTED_UUID="a42fe487-31b5-4e06-8fd2-d257725f0d82" \
+  JOB_NAME="MonJobVeeam" \
+  JOB_ID="11111111-2222-3333-4444-555555555555" \
+  EXPECTED_UUID="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" \
   MOUNTPOINT="/backup" \
   REPO_PATH="/backup/veeam/linux" \
   DESKTOP_USER="$USER" \
   DESKTOP_UID="$(id -u)" \
-  ./install.sh
+  ./install.sh --no-config
 ```
 
 L'installation copie :
@@ -91,14 +115,14 @@ sudo \
   OWNER="pico1220" \
   REPO="veeam-usb-keeper" \
   REF="main" \
-  JOB_NAME="HomeFolderBackup" \
-  JOB_ID="50e035c0-8603-4a9d-943f-dba89b8ada90" \
-  EXPECTED_UUID="a42fe487-31b5-4e06-8fd2-d257725f0d82" \
+  JOB_NAME="MonJobVeeam" \
+  JOB_ID="11111111-2222-3333-4444-555555555555" \
+  EXPECTED_UUID="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" \
   MOUNTPOINT="/backup" \
   REPO_PATH="/backup/veeam/linux" \
   DESKTOP_USER="$USER" \
   DESKTOP_UID="$(id -u)" \
-  bash bootstrap.sh
+  bash bootstrap.sh --no-config
 ```
 
 Depuis un tag :
@@ -122,7 +146,7 @@ Pour tester la regle udev sans attendre un nouveau branchement :
 
 ```bash
 sudo udevadm control --reload-rules
-sudo udevadm trigger --subsystem-match=block --property-match=ID_FS_UUID="a42fe487-31b5-4e06-8fd2-d257725f0d82"
+sudo udevadm trigger --subsystem-match=block --property-match=ID_FS_UUID="$EXPECTED_UUID"
 ```
 
 Verifications rapides :
@@ -151,7 +175,7 @@ sudo journalctl -t veeam-usb-auto --since today
 Diagnostic udev :
 
 ```bash
-udevadm info --query=property --name=/dev/disk/by-uuid/a42fe487-31b5-4e06-8fd2-d257725f0d82
+udevadm info --query=property --name=/dev/disk/by-uuid/$EXPECTED_UUID
 sudo udevadm monitor --udev --property
 ```
 
