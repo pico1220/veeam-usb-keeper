@@ -169,6 +169,73 @@ validate_uuid_var() {
   esac
 }
 
+validate_desktop_user() {
+  local actual_uid
+
+  if ! actual_uid="$(id -u "$DESKTOP_USER" 2>/dev/null)"; then
+    echo "ERREUR: utilisateur desktop introuvable: $DESKTOP_USER"
+    return 1
+  fi
+
+  if [ "$actual_uid" != "$DESKTOP_UID" ]; then
+    echo "ERREUR: DESKTOP_UID=$DESKTOP_UID ne correspond pas a $DESKTOP_USER (UID reel: $actual_uid)"
+    return 1
+  fi
+}
+
+validate_expected_uuid_present() {
+  if [ ! -e "/dev/disk/by-uuid/$EXPECTED_UUID" ]; then
+    echo "ERREUR: UUID introuvable sur cette machine: $EXPECTED_UUID"
+    echo "       Branche le disque attendu ou verifie EXPECTED_UUID avec lsblk -f."
+    return 1
+  fi
+}
+
+validate_fstab_entry() {
+  if [ ! -f /etc/fstab ]; then
+    echo "ERREUR: fichier /etc/fstab introuvable"
+    return 1
+  fi
+
+  if ! awk -v uuid="$EXPECTED_UUID" -v mountpoint="$MOUNTPOINT" '
+    /^[[:space:]]*($|#)/ { next }
+    ($1 == "UUID=" uuid || $1 == "/dev/disk/by-uuid/" uuid) && $2 == mountpoint { found = 1 }
+    END { exit(found ? 0 : 1) }
+  ' /etc/fstab; then
+    echo "ERREUR: aucune entree /etc/fstab ne monte UUID=$EXPECTED_UUID sur $MOUNTPOINT"
+    return 1
+  fi
+}
+
+validate_veeam_job() {
+  local jobs
+  local job_line
+
+  if ! jobs="$(veeamconfig job list 2>&1)"; then
+    echo "ERREUR: impossible de lister les jobs Veeam avec veeamconfig job list"
+    echo "$jobs"
+    return 1
+  fi
+
+  if ! printf '%s\n' "$jobs" | grep -F "{$JOB_ID}" >/dev/null; then
+    echo "ERREUR: job Veeam introuvable pour JOB_ID=$JOB_ID"
+    return 1
+  fi
+
+  if ! printf '%s\n' "$jobs" | grep -F "$JOB_NAME" >/dev/null; then
+    echo "ERREUR: job Veeam introuvable pour JOB_NAME=$JOB_NAME"
+    return 1
+  fi
+
+  job_line="$(printf '%s\n' "$jobs" | grep -F "{$JOB_ID}" | grep -F "$JOB_NAME" | head -n1 || true)"
+  if [ -z "$job_line" ]; then
+    echo "ERREUR: JOB_ID et JOB_NAME ne correspondent pas au meme job Veeam"
+    echo "       JOB_ID=$JOB_ID"
+    echo "       JOB_NAME=$JOB_NAME"
+    return 1
+  fi
+}
+
 compute_install_paths() {
   AUTO_SCRIPT_DST="$BIN_DIR/veeam-usb-auto.sh"
   NOTIFY_SCRIPT_DST="$BIN_DIR/veeam-notify-desktop.sh"
@@ -195,6 +262,13 @@ validate_config() {
     reject_placeholder DESKTOP_USER "ton-utilisateur" || missing=1
     validate_uuid_var JOB_ID || missing=1
     validate_uuid_var EXPECTED_UUID || missing=1
+  fi
+
+  if [ "$missing" -eq 0 ]; then
+    validate_desktop_user || missing=1
+    validate_expected_uuid_present || missing=1
+    validate_fstab_entry || missing=1
+    validate_veeam_job || missing=1
   fi
 
   if [ "$missing" -ne 0 ]; then
@@ -311,6 +385,11 @@ main() {
   need_cmd sed
   need_cmd systemctl
   need_cmd udevadm
+  need_cmd awk
+  need_cmd grep
+  need_cmd head
+  need_cmd id
+  need_cmd veeamconfig
 
   need_file "$AUTO_SCRIPT_SRC"
   need_file "$NOTIFY_SCRIPT_SRC"

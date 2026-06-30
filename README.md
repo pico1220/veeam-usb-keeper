@@ -12,7 +12,7 @@ Quand le disque USB attendu est branche, udev demarre `veeam-usb-auto.service`, 
 - un job Veeam deja cree
 - un repository Veeam existant sur le disque USB
 - une entree `/etc/fstab` permettant de monter le disque sur le point de montage choisi
-- les commandes systeme suivantes : `bash`, `curl`, `tar`, `find`, `flock`, `findmnt`, `mount`, `readlink`, `sync`, `logger`, `systemctl`, `udevadm`
+- les commandes systeme suivantes : `bash`, `curl`, `tar`, `find`, `flock`, `findmnt`, `mount`, `readlink`, `sync`, `logger`, `systemctl`, `udevadm`, `awk`, `grep`, `head`, `id`
 - pour les notifications bureau : `runuser` et `notify-send`
 
 Exemple d'entree `/etc/fstab` :
@@ -26,6 +26,8 @@ Adapte le type de systeme de fichiers (`ext4`, `xfs`, etc.) et les options selon
 ## Configuration
 
 La configuration locale n'est pas stockee dans les scripts source. L'installation charge automatiquement `config.env` s'il existe, ou un fichier donne avec `--config`. Les valeurs peuvent aussi etre passees en environnement.
+
+Pendant l'installation, `install.sh` valide aussi l'environnement local avant de copier les fichiers: `veeamconfig` doit etre disponible, `JOB_ID` et `JOB_NAME` doivent designer le meme job Veeam, `EXPECTED_UUID` doit etre present dans `/dev/disk/by-uuid`, `/etc/fstab` doit contenir une entree pour cet UUID sur `MOUNTPOINT`, et `DESKTOP_USER` / `DESKTOP_UID` doivent correspondre a un utilisateur existant.
 
 Depuis un clone du depot, commence par creer ta configuration locale :
 
