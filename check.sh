@@ -20,6 +20,22 @@ have_cmd() {
   command -v "$1" >/dev/null 2>&1
 }
 
+check_release_metadata() {
+  local version
+  local tag
+
+  log "Metadonnees de release"
+  version="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
+  tag="v$version"
+
+  [ -n "$version" ]
+  grep -F "PROJECT_VERSION=\"$version\"" "$ROOT_DIR/bootstrap.sh" >/dev/null
+  grep -F "REF=\"\${REF:-v\$PROJECT_VERSION}\"" "$ROOT_DIR/bootstrap.sh" >/dev/null
+  grep -F "Version stable courante: \`$version\` (\`$tag\`)." "$ROOT_DIR/README.md" >/dev/null
+  grep -F "raw.githubusercontent.com/pico1220/veeam-usb-keeper/$tag/bootstrap.sh" "$ROOT_DIR/README.md" >/dev/null
+  grep -F "## [$version]" "$ROOT_DIR/CHANGELOG.md" >/dev/null
+}
+
 check_bash_syntax() {
   local file
 
@@ -128,6 +144,7 @@ check_temp_install() {
 }
 
 main() {
+  check_release_metadata
   check_bash_syntax
   check_shellcheck
   check_systemd_template

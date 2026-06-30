@@ -5,6 +5,8 @@ USB-triggered Veeam Agent for Linux backups with desktop notifications, monthly 
 `veeam-usb-keeper` installe une regle udev et un service systemd `oneshot`.
 Quand le disque USB attendu est branche, udev demarre `veeam-usb-auto.service`, qui monte le disque, lance le job Veeam, attend la fin de session, synchronise les ecritures, puis laisse le disque monte pour inspection et demontage manuel.
 
+Version stable courante: `0.1.0` (`v0.1.0`).
+
 ## Prerequis
 
 - Linux avec `systemd` et `udev`
@@ -103,20 +105,17 @@ L'installation copie :
 
 Elle recharge ensuite systemd et udev.
 
-## Installation via `bootstrap.sh`
+## Installation stable via `bootstrap.sh`
 
 Le bootstrap telecharge une archive GitHub, la copie dans `/tmp/veeam-usb-auto-install`, puis lance `install.sh`.
 
-Depuis une branche :
+Commande stable recommandee, epinglee sur un tag :
 
 ```bash
-curl -fsSL -o bootstrap.sh https://raw.githubusercontent.com/pico1220/veeam-usb-keeper/main/bootstrap.sh
+curl -fsSL https://raw.githubusercontent.com/pico1220/veeam-usb-keeper/v0.1.0/bootstrap.sh -o bootstrap.sh
 less bootstrap.sh
 
 sudo \
-  OWNER="pico1220" \
-  REPO="veeam-usb-keeper" \
-  REF="main" \
   JOB_NAME="MonJobVeeam" \
   JOB_ID="11111111-2222-3333-4444-555555555555" \
   EXPECTED_UUID="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" \
@@ -127,13 +126,61 @@ sudo \
   bash bootstrap.sh --no-config
 ```
 
-Depuis un tag :
+Le bootstrap utilise par defaut :
+
+- `OWNER=pico1220`
+- `REPO=veeam-usb-keeper`
+- `REF=v0.1.0`
+- `REF_TYPE=auto`
+
+`REF_TYPE=auto` traite `main` et `master` comme des branches, et toute autre valeur de `REF` comme un tag.
+
+Avec un fichier de configuration deja pret :
 
 ```bash
-sudo OWNER="pico1220" REPO="veeam-usb-keeper" REF="v0.1.0" bash bootstrap.sh
+sudo bash bootstrap.sh --config config.env
 ```
 
-`REF=main` ou `REF=master` telecharge une branche. Toute autre valeur est traitee comme un tag.
+Pour installer explicitement un autre tag :
+
+```bash
+sudo REF="v0.1.0" bash bootstrap.sh --config config.env
+```
+
+## Installation depuis une branche
+
+```bash
+curl -fsSL -o bootstrap.sh https://raw.githubusercontent.com/pico1220/veeam-usb-keeper/main/bootstrap.sh
+less bootstrap.sh
+
+sudo \
+  REF="main" \
+  REF_TYPE="branch" \
+  JOB_NAME="MonJobVeeam" \
+  JOB_ID="11111111-2222-3333-4444-555555555555" \
+  EXPECTED_UUID="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" \
+  MOUNTPOINT="/backup" \
+  REPO_PATH="/backup/veeam/linux" \
+  DESKTOP_USER="$USER" \
+  DESKTOP_UID="$(id -u)" \
+  bash bootstrap.sh --no-config
+```
+
+## Releases
+
+La convention de release est documentee dans `RELEASE.md`.
+
+Resume :
+
+- version source dans `VERSION`
+- tags Git au format `vMAJOR.MINOR.PATCH`
+- changelog dans `CHANGELOG.md`
+- commande d'installation stable epinglee sur un tag
+
+```bash
+./check.sh
+git tag -a v0.1.0 -m "v0.1.0"
+```
 
 ## Checks locaux
 
