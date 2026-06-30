@@ -13,7 +13,7 @@ Quand le disque USB attendu est branche, udev demarre `veeam-usb-auto.service`, 
 - un repository Veeam existant sur le disque USB
 - une entree `/etc/fstab` permettant de monter le disque sur le point de montage choisi
 - les commandes systeme suivantes : `bash`, `curl`, `tar`, `find`, `flock`, `findmnt`, `mount`, `readlink`, `sync`, `logger`, `systemctl`, `udevadm`, `awk`, `grep`, `head`, `id`
-- pour les notifications bureau : `runuser` et `notify-send`
+- pour les notifications bureau : `runuser`, `notify-send` et, idéalement, `loginctl` pour détecter la session graphique active
 
 Exemple d'entree `/etc/fstab` :
 
@@ -46,7 +46,7 @@ Variables principales :
 | `MOUNTPOINT` | oui | `/backup` | Point de montage du disque. |
 | `REPO_PATH` | oui | aucun | Chemin du repository Veeam sur le disque monte. |
 | `DESKTOP_USER` | oui | `$SUDO_USER` si disponible | Utilisateur qui recoit les notifications desktop. |
-| `DESKTOP_UID` | oui | UID de `DESKTOP_USER` si resoluble | UID de cet utilisateur, utilise pour `XDG_RUNTIME_DIR` et D-Bus. |
+| `DESKTOP_UID` | oui | UID de `DESKTOP_USER` si resoluble | UID de cet utilisateur, utilise pour trouver le runtime D-Bus utilisateur. |
 | `STATE_DIR` | oui | `/var/lib/veeam-usb-auto` | Stocke l'etat local, notamment le marqueur d'active full mensuel. |
 | `BIN_DIR` | non | `/usr/local/bin` | Destination des scripts installes. |
 | `SYSTEMD_DIR` | non | `/etc/systemd/system` | Destination du service systemd. |
